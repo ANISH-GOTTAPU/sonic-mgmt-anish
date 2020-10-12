@@ -11,12 +11,11 @@ def lossless_prio_dscp_map(duthost):
     This fixture reads the QOS parameters from SONiC DUT, and creates
     lossless priority Vs. DSCP priority port map (dictionary key = lossless 
     priority).
-    Args:
-       duthost (pytest fixture) : duthost
-       
-    Returns:
-        Lossless priority vs. DSCP map (dictionary, key = lossless priority).
-        Example: {3: [3], 4: [4]} 
+
+    :param duthost: duthost pytest fixture
+    :return
+    Lossless priority vs. DSCP map (dictionary, key = lossless priority).
+    Example: {3: [3], 4: [4]}
     """
     config_facts = duthost.config_facts(host=duthost.hostname, 
                                         source="persistent")['ansible_facts']
