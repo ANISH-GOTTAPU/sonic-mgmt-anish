@@ -148,16 +148,20 @@ def test_pfcwd_two_senders_two_receivers(api,
                             tx_frame_rate = int(flow['frames_tx_rate'])
                             rx_frame_rate = int(flow['frames_rx_rate'])
                             tolerance = (tx_frame_rate * tolerance_percent)/100
-                            logger.info("\nTx Frame Rate,Rx Frame Rate of {} during Pause Storm: {},{}"
-                                        .format(flow['name'],tx_frame_rate,rx_frame_rate))  
+                            logger.info("\n{} during Pause Storm Tx Frame Rate: {} Rx Frame Rate: {} \
+                                         \n{} during Pause Storm Tx Frames: {} Rx Frames: {} Loss%: {}"
+                                        .format(flow['name'],tx_frame_rate,rx_frame_rate,flow['name'],
+                                                flow['frames_tx'],flow['frames_rx'],flow['loss']))
                             if tx_frame_rate > (rx_frame_rate + tolerance):
                                 pytest_assert(False,
                                               "Observing loss for %s during pause storm which is not expected" %(flow['name']))
                         elif flow['name'] in ['Traffic 2->3','Traffic 3->2']:
                             tx_frame_rate = int(flow['frames_tx_rate'])
                             rx_frame_rate = int(flow['frames_rx_rate'])
-                            logger.info("\nTx Frame Rate,Rx Frame Rate of {} during Pause Storm: {},{}"
-                                        .format(flow['name'],tx_frame_rate,rx_frame_rate)) 
+                            logger.info("\n{} during Pause Storm Tx Frame Rate: {} Rx Frame Rate: {} \
+                                         \n{} during Pause Storm Tx Frames: {} Rx Frames: {} Loss%: {}"
+                                        .format(flow['name'],tx_frame_rate,rx_frame_rate,flow['name'],
+                                                flow['frames_tx'],flow['frames_rx'],flow['loss']))
                             if (tx_frame_rate == 0) or (rx_frame_rate != 0):
                                 pytest_assert(False,
                                               "Expecting loss for %s during pause storm, which didn't occur" %(flow['name']))
@@ -168,8 +172,8 @@ def test_pfcwd_two_senders_two_receivers(api,
             # 2. check for no loss in 'Traffic 2->3','Traffic 3->2' after stopping Pause Storm
             ###############################################################################################
             # pause storm will stop once loop completes, once the current time reaches t_stop_pause
-
             api.set_state(State(FlowTransmitState(state='stop',flow_names=['Pause Storm'])))
+            logger.info("PFC Pause Storm stopped")
             
             # Verification after pause storm is stopped
             t_to_stop_traffic = datetime.datetime.now() + datetime.timedelta(seconds=t_btwn_stop_pause_and_stop_traffic)
@@ -184,12 +188,14 @@ def test_pfcwd_two_senders_two_receivers(api,
                     test_stat = api.get_flow_results(FlowRequest())
                     
                     for flow in test_stat:
-                        if flow['name'] in ['Traffic 1->2','Traffic 2->1'] :
+                        if flow['name'] in ['Traffic 1->2','Traffic 2->1']:
                             tx_frame_rate = int(flow['frames_tx_rate'])
                             rx_frame_rate = int(flow['frames_rx_rate'])
                             tolerance = (tx_frame_rate * tolerance_percent)/100
-                            logger.info("\nTx Frame Rate,Rx Frame Rate of {} after stopping Pause Storm: {},{}"
-                                        .format(flow['name'],tx_frame_rate,rx_frame_rate))
+                            logger.info("\n{} after stopping Pause Storm Tx Frame Rate: {} Rx Frame Rate: {} \
+                                         \n{} after stopping Pause Storm Tx Frames: {} Rx Frames: {} Loss%: {}"
+                                        .format(flow['name'],tx_frame_rate,rx_frame_rate,flow['name'],
+                                                flow['frames_tx'],flow['frames_rx'],flow['loss']))
                             if tx_frame_rate > (rx_frame_rate + tolerance):
                                 pytest_assert(False,
                                               "Observing loss for %s after pause storm stopped which is not expected" %(flow['name']))
@@ -197,12 +203,13 @@ def test_pfcwd_two_senders_two_receivers(api,
                             tx_frame_rate = int(flow['frames_tx_rate'])
                             rx_frame_rate = int(flow['frames_rx_rate'])
                             tolerance = (tx_frame_rate * tolerance_percent)/100
-                            logger.info("\nTx Frame Rate,Rx Frame Rate of {} after stopping Pause Storm: {},{}"
-                                        .format(flow['name'],tx_frame_rate,rx_frame_rate)) 
+                            logger.info("\n{} after stopping Pause Storm Tx Frame Rate: {} Rx Frame Rate: {} \
+                                         \n{} after stopping Pause Storm Tx Frames: {} Rx Frames: {} Loss%: {}"
+                                        .format(flow['name'],tx_frame_rate,rx_frame_rate,flow['name'],
+                                                flow['frames_tx'],flow['frames_rx'],flow['loss']))
                             if tx_frame_rate > (rx_frame_rate + tolerance):
                                 pytest_assert(False,
                                               "Observing loss for %s after pause storm stopped which is not expected" %(flow['name']))
             
             # stop all flows
             api.set_state(State(FlowTransmitState(state='stop')))
-            

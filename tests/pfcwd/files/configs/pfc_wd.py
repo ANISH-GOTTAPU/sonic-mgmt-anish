@@ -1,6 +1,5 @@
-import time
 import pytest
-import sys
+
 
 from tests.common.reboot import logger
 from tests.common.helpers.assertions import pytest_assert
@@ -14,7 +13,6 @@ from tests.common.ixia.common_helpers import get_vlan_subnet, \
 ###############################################################################
 
 from abstract_open_traffic_generator.port import Port
-from abstract_open_traffic_generator.result import PortRequest
 from abstract_open_traffic_generator.config import Options
 from abstract_open_traffic_generator.config import Config
 
@@ -48,8 +46,8 @@ def ports_config(conn_graph_facts,
 
     class PortsConfig(object):
         def __init__(self,
-                    conn_graph_facts,
-                    fanout_graph_facts):
+                     conn_graph_facts,
+                     fanout_graph_facts):
             self.conn_graph_facts = conn_graph_facts
             self.fanout_graph_facts = fanout_graph_facts
 
@@ -182,7 +180,7 @@ def pfcwd_configs(duthost,
                   frame_size,
                   t_start_pause) :
     """
-    A fixture to create pfcwd configs on traffic generator using open traffic genertor model
+    A fixture to create pfcwd configs on traffic generator using open traffic generator model
 
     :param duthost: duthost fixture
     :param ports_config: ports_config fixture returns ports config object to create pfcwd configs
@@ -334,14 +332,14 @@ def pfcwd_configs(duthost,
             #######################################################################
             
             flow_3to2 = Flow(name="Traffic 3->2",
-                            tx_rx=TxRx(DeviceTxRx(tx_device_names=[device3.name],rx_device_names=[device2.name])),
-                            packet=[
+                             tx_rx=TxRx(DeviceTxRx(tx_device_names=[device3.name],rx_device_names=[device2.name])),
+                             packet=[
                                 Header(choice=EthernetHeader()),
                                 Header(choice=Ipv4Header(priority=dscp_prio)),
-                            ],
-                            size=Size(frame_size),
-                            rate=Rate('line', line_rate),
-                            duration=Duration(Continuous(delay=start_delay, delay_unit='nanoseconds'))
+                             ],
+                             size=Size(frame_size),
+                             rate=Rate('line', line_rate),
+                             duration=Duration(Continuous(delay=start_delay, delay_unit='nanoseconds'))
                             )
 
             config.flows.append(flow_3to2)
