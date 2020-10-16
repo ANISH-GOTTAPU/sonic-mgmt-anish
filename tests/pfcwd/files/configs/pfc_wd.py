@@ -120,6 +120,20 @@ def ports_config(conn_graph_facts,
                           for i in range(0, len(available_phy_port), no_of_ports-overlap_size)]
             ports_list = [ele for ele in ports_list if len(ele) == no_of_ports]
             return ports_list
+        
+        def verify_required_ports(self, no_of_ports_required):
+            """
+            Verifies the number of physical ports required and fails if not satisfied
+            
+            :param no_of_ports_required: No of Ports mandatory for the test.
+                                 If Topo doesn't statisfy throws error.
+            """
+            available_phy_ports = self.get_available_phy_ports()
+            if no_of_ports_required is None:
+                return
+            if len(available_phy_ports) < no_of_ports_required:
+                pytest_assert(False,
+                              "Number of physical ports must be at least {}".format(no_of_ports_required))
 
         def create_config(self,phy_ports):
             """
@@ -468,3 +482,148 @@ def pfcwd_multi_host_configs(start_delay,
         return configs
 
     return _pfcwd_multi_host_configs
+
+@pytest.fixture
+def pfcwd_impact_configs(duthost,
+                  ports_config,
+                  start_delay,
+                  traffic_line_rate,
+                  frame_size) :
+    """
+    A fixture to create pfcwd impact configs on traffic generator using open traffic genertor model
+
+    :param duthost: duthost fixture
+    :param ports_config: ports_config fixture returns ports config object to create pfcwd configs
+    :param start_delay: start_delay parameter to delay start of traffic
+    :param traffic_line_rate: Traffic line rate
+    :param frame_size: Traffic item frame size
+    :param t_start_pause: Time to Start Pause Storm Traffic
+    """
+
+    def _pfcwd_impact_configs(priority_lossless):
+        """
+         A fixture to create pfcwd configs on traffic generator using open traffic genertor model
+
+        :param priority_lossless: tuple of dscp lossless priorities and interface mappings dictionaries.
+        """
+
+        vlan_subnet = get_vlan_subnet(duthost)
+
+        if vlan_subnet is None:
+            pytest_assert(False,
+                      "Fail to get Vlan subnet information")
+
+        vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, 2)
+
+        gw_addr = vlan_subnet.split('/')[0]
+
+        device1_ip = vlan_ip_addrs[0]
+        device2_ip = vlan_ip_addrs[1]
+
+        device1_gateway_ip = device2_gateway_ip = gw_addr
+
+        ports_config.verify_required_ports(no_of_ports_required=2)
+
+        ports_list = ports_config.create_ports_list(no_of_ports=2)
+
+        configs = []
+        for phy_ports in ports_list:
+            # import pdb; pdb.set_trace()
+            config = ports_config.create_config(phy_ports)
+
+            line_rate = traffic_line_rate
+                
+            ######################################################################
+            # Device Configuration
+            ######################################################################
+            port1 = config.ports[0]
+            port2 = config.ports[1]
+
+            #Device 1 configuration
+            port1.devices = [
+                Device(name='Port 1',
+                       device_count=1,
+                       choice=Ipv4(name='Ipv4 1',
+                                   address=Pattern(device1_ip),
+                                   prefix=Pattern('24'),
+                                   gateway=Pattern(device1_gateway_ip),
+                                   ethernet=Ethernet(name='Ethernet 1')
+                                  )
+                       )
+            ]
+
+            #Device 2 configuration
+            port2.devices = [
+                Device(name='Port 2',
+                       device_count=1,
+                       choice=Ipv4(name='Ipv4 2',
+                                   address=Pattern(device2_ip),
+                                   prefix=Pattern('24'),
+                                   gateway=Pattern(device2_gateway_ip),
+                                   ethernet=Ethernet(name='Ethernet 2')
+                                  )
+                       )
+            ]
+            
+            device1 = port1.devices[0]
+            device2 = port2.devices[0]
+            
+            ######################################################################
+            # Fetching priorities for lossless and lossy traffic
+            ######################################################################
+            interface_priorities = priority_lossless[1]
+            priority_lossless_list = priority_lossless[0]
+            
+            lossless_list = interface_priorities.get(phy_ports[0].get('peer_port'))
+            if lossless_list is None:
+                pytest_assert(False, "DSCP priorities are not configured on the port {}".format(phy_ports[0].get('peer_port')))
+
+            final_priority_list = []
+            for dscp in lossless_list:
+                if priority_lossless_list.get(dscp) is None:
+                    continue
+                list_values = [str(x) for x in priority_lossless_list.get(dscp)]
+                final_priority_list = final_priority_list + list_values
+            
+            dscp_prio_lossy = [str(x) for x in range(64) if str(x) not in final_priority_list]
+            dscp_prio_lossless = Priority(Dscp(phb=FieldPattern(choice=final_priority_list)))
+            dscp_prio_lossy = Priority(Dscp(phb=FieldPattern(choice=dscp_prio_lossy)))
+            
+            ######################################################################
+            # Traffic configuration Traffic 1->2 lossless
+            ######################################################################
+
+            flow_1to2_lossless = Flow(name="Traffic 1->2 lossless",
+                             tx_rx=TxRx(DeviceTxRx(tx_device_names=[device1.name],rx_device_names=[device2.name])),
+                             packet=[
+                                Header(choice=EthernetHeader()),
+                                Header(choice=Ipv4Header(priority=dscp_prio_lossless)),
+                             ],
+                             size=Size(frame_size),
+                             rate=Rate('line', line_rate),
+                             duration=Duration(Continuous(delay=start_delay, delay_unit='nanoseconds'))
+                             )
+
+            config.flows.append(flow_1to2_lossless)
+
+            ######################################################################
+            # Traffic configuration Traffic 1->2 lossy
+            ######################################################################
+
+            flow_1to2_lossy = Flow(name="Traffic 1->2 lossy",
+                             tx_rx=TxRx(DeviceTxRx(tx_device_names=[device1.name],rx_device_names=[device2.name])),
+                             packet=[
+                                Header(choice=EthernetHeader()),
+                                Header(choice=Ipv4Header(priority=dscp_prio_lossy)),
+                             ],
+                             size=Size(frame_size),
+                             rate=Rate('line', line_rate),
+                             duration=Duration(Continuous(delay=start_delay, delay_unit='nanoseconds'))
+                            )
+
+            config.flows.append(flow_1to2_lossy)
+            configs.append(config)
+
+        return configs
+
+    return _pfcwd_impact_configs
